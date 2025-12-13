@@ -25,3 +25,23 @@ The system is optimized to:
 
 ## Folder Structure
 
+ocr-dimensions-extractor/
+│
+├── README.md
+├── requirements.txt
+│
+├── ocr_dimensions/
+│ ├── init.py
+│ ├── engine.py
+│ ├── geometry.py
+│ ├── parsing.py
+│ ├── zones.py
+│ ├── filters.py
+│ ├── part_number.py
+│ ├── overlay.py
+│ ├── textract_wrapper.py
+│ └── utils.py
+│
+└── cli/
+├── init.py
+└── textract_runner.py
