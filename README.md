@@ -45,3 +45,62 @@ ocr-dimensions-extractor/
 └── cli/
 ├── init.py
 └── textract_runner.py
+
+
+---
+
+## Install Dependencies
+pip install -r requirements.txt
+
+
+---
+
+## Run Extraction
+With debug overlay:
+
+python cli/textract_runner.py input.pdf output.xlsx --debug
+
+Output file will include:
+
+- Part Number
+- Zone
+- Nominal Dimension
+- Tolerance
+- Tolerance Value
+- Accuracy %
+- Multiplicity
+- Lower Limit
+- Upper Limit
+- File Name
+
+---
+
+## Debug Overlay
+
+When `--debug` is passed, the system generates:
+
+
+This includes:
+- Textract word boxes
+- Nominal tokens (blue)
+- Tolerance tokens (green)
+- ± symbols (yellow)
+- Dimension groups (red)
+- Rejected candidates (gray)
+- Zone grid overlay (A–H, 1–10)
+
+---
+
+## Requirements
+
+See `requirements.txt`
+
+---
+
+## License
+No Licence
+
+
+
+
+
