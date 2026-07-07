@@ -12,6 +12,8 @@ from .grid import zone_for_point
 from .models import DimensionRow
 from .parser import parse_dimensions
 from .validation import validate_dimension
+from .detectors import GeometryTextRegionDetector
+from .region_ocr import select_region_ocr_backend
 
 
 def _preprocess(gray: np.ndarray) -> list[np.ndarray]:
@@ -87,3 +89,47 @@ def extract_ocr_rows(
                 if previous is None or row.accuracy > previous.accuracy:
                     found[key] = row
     return sorted(found.values(), key=lambda item: (item.zone, float(item.nominal), item.tolerance_text))
+
+
+def extract_detector_crop_rows(
+    image_path: Path,
+    rows: list[tuple[int, int]],
+    cols: list[tuple[int, int]],
+    exclusions=None,
+    ocr_engine: str = "auto",
+) -> tuple[list[DimensionRow], dict]:
+    detector = GeometryTextRegionDetector(exclusions=exclusions or [])
+    detections = detector.detect(image_path)
+    backend = select_region_ocr_backend(ocr_engine)
+    candidates = backend.recognize(image_path, detections)
+
+    found: dict[tuple[str, float, str], DimensionRow] = {}
+    rejected = 0
+    parsed_count = 0
+    for candidate in candidates:
+        zone = zone_for_point(candidate.bbox.cx, candidate.bbox.cy, rows, cols) or ""
+        if not zone:
+            continue
+        parsed_rows = parse_dimensions(candidate.text, zone, candidate.confidence)
+        for parsed in parsed_rows:
+            parsed_count += 1
+            row = replace(parsed.row, source_bbox=candidate.bbox, page_number=candidate.page_number)
+            row = validate_dimension(row, parsed.raw_text, exclusions or [])
+            if row.status == "rejected":
+                rejected += 1
+            key = (row.zone, float(row.nominal), row.tolerance_text)
+            previous = found.get(key)
+            if previous is None or row.accuracy > previous.accuracy:
+                found[key] = row
+
+    metadata = {
+        "detector_backend": detector.name,
+        "detector_version": detector.version,
+        "ocr_backend": backend.name,
+        "ocr_backend_version": backend.version,
+        "detections": len(detections),
+        "ocr_candidates": len(candidates),
+        "parsed_candidates": parsed_count,
+        "rejected_candidates": rejected,
+    }
+    return sorted(found.values(), key=lambda item: (item.zone, float(item.nominal), item.tolerance_text)), metadata

@@ -17,6 +17,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+paddle = [
+  "paddleocr>=3.0.0",
+  "paddlepaddle>=3.0.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

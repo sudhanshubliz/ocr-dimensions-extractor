@@ -109,6 +109,7 @@ Batch run:
 ```bash
 python cad_grid_hybrid_extractor.py \
   -o output \
+  --ocr-engine auto \
   input/4022.701.44302-110-001-01.pdf \
   input/4022.704.85852-110-001-01.pdf
 ```
@@ -130,6 +131,35 @@ output/<timestamp>/
 
 Use `--flat-output` when you want batch artifacts written directly inside the
 chosen output folder.
+
+### Detector-crop OCR
+
+Unknown templates now use a geometry-first detector-crop OCR path:
+
+```text
+rendered page -> exclusion masks -> geometry text-region detector ->
+cropped OCR regions -> OCR recognition -> CAD dimension grammar ->
+deterministic validation -> review/rejected rows
+```
+
+OCR modes:
+
+```text
+--ocr-engine auto       Prefer PaddleOCR/PP-OCRv5 when installed, fallback to cropped Tesseract
+--ocr-engine paddle     Require PaddleOCR/PP-OCRv5
+--ocr-engine tesseract  Use cropped Tesseract only
+--ocr-engine legacy     Use the previous full-page Tesseract path
+```
+
+Install the optional PaddleOCR stack with:
+
+```bash
+python -m pip install -e ".[paddle]"
+```
+
+PaddleOCR remains an OCR source, not the final source of truth. Rows from unknown
+templates are still `review` or `rejected` until deterministic validators and
+human review accept them.
 
 ### Structured output
 
@@ -198,8 +228,8 @@ The first production source of truth is deterministic geometry plus validation.
 Model components are intentionally replaceable:
 
 ```text
-DetectorBackend -> YOLO / RT-DETR later
-OCRBackend      -> Tesseract now, PaddleOCR / PP-OCRv5 next
+DetectorBackend -> geometry text-region detector now, YOLO / RT-DETR later
+OCRBackend      -> cropped Tesseract fallback, PaddleOCR / PP-OCRv5 optional
 VLMVerifier     -> disabled by default, optional review-only verifier later
 ```
 

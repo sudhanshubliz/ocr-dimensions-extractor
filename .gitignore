@@ -8,3 +8,10 @@ uploads/
 .cad_dimension_app/
 input/api_uploads/
 output/api_runs/
+input/*.pdf
+!input/4022.701.44302-110-001-01.pdf
+output/rendered/
+output/crops/
+output/excel/*
+!output/excel/4022.701.4430_grid_hybrid_extract.xlsx
+output/[0-9]*T*/

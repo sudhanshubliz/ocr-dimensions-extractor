@@ -10,7 +10,7 @@ from .export import write_batch_excel, write_dimensions_excel, write_json
 from .geometry import BBox
 from .grid import detect_grid_intervals
 from .models import ExtractionResult, dimension_to_record, part_number_from_filename
-from .ocr import extract_ocr_rows
+from .ocr import extract_detector_crop_rows, extract_ocr_rows
 from .rendering import render_first_page
 from .templates import template_rows_for_part
 
@@ -60,6 +60,7 @@ def _audit_payload(
     grid_rows: list[tuple[int, int]] | None = None,
     grid_cols: list[tuple[int, int]] | None = None,
     exclusions: list | None = None,
+    extraction_metadata: dict | None = None,
 ) -> dict:
     counts = _status_counts(result.rows)
     return {
@@ -94,6 +95,7 @@ def _audit_payload(
             "valid_lower_upper_limit",
             "reject_part_numbers_dates_material_specs",
         ],
+        "extraction_metadata": extraction_metadata or {},
     }
 
 
@@ -132,7 +134,7 @@ def write_result_artifacts(result: ExtractionResult, output_dir: Path, image_pat
     }
 
 
-def extract_pdf(input_path: Path, output_dir: Path | None = None) -> ExtractionResult:
+def extract_pdf(input_path: Path, output_dir: Path | None = None, ocr_engine: str = "auto") -> ExtractionResult:
     doc_output_dir = _document_output_dir(output_dir, input_path) if output_dir else None
     image_path = render_first_page(input_path, output_dir=doc_output_dir)
     grid_rows, grid_cols = detect_grid_intervals(image_path)
@@ -151,16 +153,33 @@ def extract_pdf(input_path: Path, output_dir: Path | None = None) -> ExtractionR
                 result.mode,
                 result.rows,
                 result.text_layer_chars,
-                _audit_payload(result, image_path=image_path, grid_rows=grid_rows, grid_cols=grid_cols, exclusions=exclusions),
+                _audit_payload(
+                    result,
+                    image_path=image_path,
+                    grid_rows=grid_rows,
+                    grid_cols=grid_cols,
+                    exclusions=exclusions,
+                    extraction_metadata={"mode": "template", "ocr_engine": "not_used"},
+                ),
                 doc_output_dir,
             )
             write_result_artifacts(result, output_dir, image_path)
         return result
 
-    ocr_rows = extract_ocr_rows(image_path, grid_rows, grid_cols, exclusions=exclusions)
+    if ocr_engine == "legacy":
+        ocr_rows = extract_ocr_rows(image_path, grid_rows, grid_cols, exclusions=exclusions)
+        extraction_metadata = {"mode": "legacy_full_page_tesseract", "ocr_engine": "tesseract"}
+    else:
+        ocr_rows, extraction_metadata = extract_detector_crop_rows(
+            image_path,
+            grid_rows,
+            grid_cols,
+            exclusions=exclusions,
+            ocr_engine=ocr_engine,
+        )
     rows = [dimension_to_record(row, part_number, input_path.name, index=i) for i, row in enumerate(ocr_rows, start=1)]
-    note = "Generic OCR candidates; values require human review against the PDF/CAD drawing."
-    result = ExtractionResult(input_path, part_number, "generic-ocr-review", rows, text_chars, note)
+    note = "Detector-crop OCR candidates; values require human review against the PDF/CAD drawing."
+    result = ExtractionResult(input_path, part_number, "detector-crop-ocr-review", rows, text_chars, note)
     if output_dir:
         result = ExtractionResult(
             input_path,
@@ -168,21 +187,33 @@ def extract_pdf(input_path: Path, output_dir: Path | None = None) -> ExtractionR
             result.mode,
             result.rows,
             result.text_layer_chars,
-            _audit_payload(result, image_path=image_path, grid_rows=grid_rows, grid_cols=grid_cols, exclusions=exclusions),
+            _audit_payload(
+                result,
+                image_path=image_path,
+                grid_rows=grid_rows,
+                grid_cols=grid_cols,
+                exclusions=exclusions,
+                extraction_metadata=extraction_metadata,
+            ),
             doc_output_dir,
         )
         write_result_artifacts(result, output_dir, image_path)
     return result
 
 
-def extract_many(input_paths: list[Path], output_dir: Path, timestamped: bool = True) -> tuple[list[ExtractionResult], Path]:
+def extract_many(
+    input_paths: list[Path],
+    output_dir: Path,
+    timestamped: bool = True,
+    ocr_engine: str = "auto",
+) -> tuple[list[ExtractionResult], Path]:
     run_dir = output_dir / _timestamp() if timestamped else output_dir
     run_dir.mkdir(parents=True, exist_ok=True)
     results = []
     all_rows = []
     summary_rows = []
     for input_path in input_paths:
-        result = extract_pdf(input_path, run_dir)
+        result = extract_pdf(input_path, run_dir, ocr_engine=ocr_engine)
         results.append(result)
         all_rows.extend(result.rows)
         high_conf = sum(1 for row in result.rows if (row.get("Accuracy %") or 0) >= 90)
