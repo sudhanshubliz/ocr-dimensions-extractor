@@ -10,7 +10,7 @@ from .pipeline import extract_many, extract_pdf
 def main() -> int:
     parser = argparse.ArgumentParser(description="Extract CAD dimensions using a grid-first hybrid workflow.")
     parser.add_argument("paths", nargs="+", type=Path, help="Input PDF(s), or input PDF plus output .xlsx for single-file mode")
-    parser.add_argument("-o", "--output-dir", type=Path, default=Path("runs"), help="Output directory or run base directory")
+    parser.add_argument("-o", "--output-dir", type=Path, default=Path("output"), help="Output directory or run base directory")
     parser.add_argument("--flat-output", action="store_true", help="Write batch artifacts directly into --output-dir instead of a timestamped run folder")
     args = parser.parse_args()
 

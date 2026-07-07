@@ -85,29 +85,38 @@ Run:
 
 ```bash
 python cad_grid_hybrid_extractor.py \
-  4022.701.44302-110-001-01.pdf \
-  4022.701.4430_grid_hybrid_extract.xlsx
+  input/4022.701.44302-110-001-01.pdf \
+  output/excel/4022.701.4430_grid_hybrid_extract.xlsx
 ```
 
-The included sample output is:
+CAD source PDFs live under:
 
 ```text
-4022.701.4430_grid_hybrid_extract.xlsx
+input/
+```
+
+Generated or legacy extraction artifacts live under:
+
+```text
+output/
+  excel/
+  rendered/
+  cad_dimension_outputs/
 ```
 
 Batch run:
 
 ```bash
 python cad_grid_hybrid_extractor.py \
-  -o runs \
-  4022.701.44302-110-001-01.pdf \
-  4022.704.85852-110-001-01.pdf
+  -o output \
+  input/4022.701.44302-110-001-01.pdf \
+  input/4022.704.85852-110-001-01.pdf
 ```
 
 This writes one timestamped run folder:
 
 ```text
-runs/<timestamp>/
+output/<timestamp>/
   summary.xlsx
   dimensions.json
   audit_report.json
@@ -166,7 +175,9 @@ POST  /documents/{id}/export/xlsx
 ```
 
 The first implementation uses local filesystem storage under `.cad_dimension_app/`
-and SQLite. There are no cloud calls by default.
+and SQLite. Uploaded API documents are stored under `input/api_uploads/`, and
+API extraction runs are written under `output/api_runs/`. There are no cloud
+calls by default.
 
 ### Tests
 

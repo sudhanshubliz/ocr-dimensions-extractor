@@ -5,3 +5,6 @@ __pycache__/
 runs/
 cad_dimension_app.sqlite3
 uploads/
+.cad_dimension_app/
+input/api_uploads/
+output/api_runs/

@@ -133,7 +133,8 @@ def write_result_artifacts(result: ExtractionResult, output_dir: Path, image_pat
 
 
 def extract_pdf(input_path: Path, output_dir: Path | None = None) -> ExtractionResult:
-    image_path = render_first_page(input_path)
+    doc_output_dir = _document_output_dir(output_dir, input_path) if output_dir else None
+    image_path = render_first_page(input_path, output_dir=doc_output_dir)
     grid_rows, grid_cols = detect_grid_intervals(image_path)
     exclusions = detect_exclusion_regions(image_path)
     part_number = part_number_from_filename(input_path)
@@ -151,7 +152,7 @@ def extract_pdf(input_path: Path, output_dir: Path | None = None) -> ExtractionR
                 result.rows,
                 result.text_layer_chars,
                 _audit_payload(result, image_path=image_path, grid_rows=grid_rows, grid_cols=grid_cols, exclusions=exclusions),
-                _document_output_dir(output_dir, input_path),
+                doc_output_dir,
             )
             write_result_artifacts(result, output_dir, image_path)
         return result
@@ -168,7 +169,7 @@ def extract_pdf(input_path: Path, output_dir: Path | None = None) -> ExtractionR
             result.rows,
             result.text_layer_chars,
             _audit_payload(result, image_path=image_path, grid_rows=grid_rows, grid_cols=grid_cols, exclusions=exclusions),
-            _document_output_dir(output_dir, input_path),
+            doc_output_dir,
         )
         write_result_artifacts(result, output_dir, image_path)
     return result

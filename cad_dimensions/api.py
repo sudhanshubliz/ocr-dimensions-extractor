@@ -14,8 +14,8 @@ from .storage import LocalStore
 
 
 APP_ROOT = Path(".cad_dimension_app")
-UPLOAD_DIR = APP_ROOT / "uploads"
-RUN_DIR = APP_ROOT / "runs"
+UPLOAD_DIR = Path("input/api_uploads")
+RUN_DIR = Path("output/api_runs")
 DB_PATH = APP_ROOT / "cad_dimension_app.sqlite3"
 
 app = FastAPI(title="Local CAD Dimension Extraction API", version="0.1.0")
