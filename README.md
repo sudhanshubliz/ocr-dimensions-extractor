@@ -5,8 +5,9 @@ dimensions into Excel.
 
 ## CAD grid-first hybrid extraction
 
-The current recommended workflow for ASML-style CAD layout PDFs is implemented in
-`cad_grid_hybrid_extractor.py`.
+The current recommended workflow for ASML-style CAD layout PDFs is exposed by
+`cad_grid_hybrid_extractor.py` and implemented in the modular `cad_dimensions/`
+package.
 
 ### Why this approach
 
@@ -31,6 +32,22 @@ The safer technique is grid-first extraction:
 For production use, OCR should be applied only to focused dimension regions
 rather than the full drawing page. This keeps OCR from mixing title-block notes,
 view labels, grid labels, and drawing dimensions into false dimension rows.
+
+### Modules
+
+The extractor is split into small modules:
+
+```text
+cad_dimensions/models.py      Shared row schema and dataclasses
+cad_dimensions/rendering.py   PDF-to-image rendering
+cad_dimensions/grid.py        CAD border/grid detection and zone mapping
+cad_dimensions/parser.py      Dimension/tolerance grammar
+cad_dimensions/ocr.py         Review-level OCR candidate extraction
+cad_dimensions/templates.py   Known template-confirmed dimensions
+cad_dimensions/export.py      Excel writers
+cad_dimensions/pipeline.py    Single-file and batch orchestration
+cad_dimensions/cli.py         Command-line interface
+```
 
 ### Output columns
 
@@ -65,6 +82,21 @@ The included sample output is:
 4022.701.4430_grid_hybrid_extract.xlsx
 ```
 
+Batch run:
+
+```bash
+python cad_grid_hybrid_extractor.py \
+  -o cad_dimension_outputs \
+  4022.701.44302-110-001-01.pdf \
+  4022.704.85852-110-001-01.pdf
+```
+
+This writes one workbook per PDF plus:
+
+```text
+cad_dimension_outputs/cad_dimension_batch_analysis.xlsx
+```
+
 ### Notes on precision
 
 Use CAD/PDF-rendered dimension text as the source of values. Do not measure
@@ -74,7 +106,11 @@ must come from the printed dimension annotation or native CAD data.
 
 ### Current limitation
 
-`cad_grid_hybrid_extractor.py` currently includes conservative deterministic
-dimension recovery for the included sample drawing family. The next production
-step is to replace those deterministic rows with focused region OCR plus
-cross-checks against a validated dimension grammar.
+Known drawing templates use template-confirmed values. Unknown drawings use
+generic OCR candidates with review-level confidence. The generic OCR path is not
+yet inspection-grade by itself; it is intended to identify candidate dimensions
+that should be checked against the original PDF/CAD drawing.
+
+The next production step is to train or configure a focused detector for
+dimension text regions, then run OCR/vision only on those regions and validate
+the result with the engineering dimension grammar.
