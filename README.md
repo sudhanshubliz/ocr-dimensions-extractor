@@ -9,6 +9,13 @@ The current recommended workflow for ASML-style CAD layout PDFs is exposed by
 `cad_grid_hybrid_extractor.py` and implemented in the modular `cad_dimensions/`
 package.
 
+Production MLOps planning is documented here:
+
+```text
+docs/mlops_cad_dimension_pipeline.md
+mlops/pipeline.yaml
+```
+
 ### Why this approach
 
 Some CAD PDFs, including `4022.701.44302-110-001-01.pdf`, do not contain normal

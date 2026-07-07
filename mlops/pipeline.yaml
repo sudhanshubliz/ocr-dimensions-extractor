@@ -1,0 +1,168 @@
+name: cad-dimension-extraction
+version: 0.1.0
+
+inputs:
+  document:
+    types: [pdf, png, jpg]
+    required: true
+  part_number:
+    source: filename_or_title_block
+
+outputs:
+  dimensions_excel: xlsx
+  dimensions_json: json
+  audit_report: md
+  crops: image_directory
+
+stages:
+  - name: validate_input
+    owner: api
+    checks:
+      - file_exists
+      - supported_type
+      - checksum
+      - virus_scan
+
+  - name: render
+    owner: worker
+    config:
+      dpi: 300
+      renderer: poppler
+    artifacts:
+      - page_image
+
+  - name: geometry_detection
+    owner: deterministic
+    outputs:
+      - sheet_border
+      - grid_zones
+      - title_block_region
+      - notes_regions
+      - exclusion_regions
+
+  - name: template_or_native_extraction
+    owner: deterministic
+    modes:
+      - native_cad
+      - known_template
+    promotion_gate:
+      accepted_when: grammar_valid_and_template_matched
+
+  - name: dimension_region_detection
+    owner: ml_detector
+    candidate_models:
+      - yolo
+      - rt_detr
+    classes:
+      - dimension_text
+      - tolerance_text
+      - dimension_line
+      - arrowhead
+      - radius_dimension
+      - diameter_dimension
+      - reference_dimension
+      - title_block
+      - notes_block
+      - ignore_text
+
+  - name: crop_generation
+    owner: worker
+    inputs:
+      - page_image
+      - detected_regions
+    outputs:
+      - crop_images
+      - crop_metadata
+
+  - name: ocr
+    owner: ocr_service
+    primary_model: paddleocr_ppocrv5
+    fallback_model: tesseract
+    rotations: [0, 90, 270]
+
+  - name: parse_dimensions
+    owner: deterministic
+    grammar:
+      - symmetric_tolerance
+      - unilateral_tolerance
+      - radius
+      - diameter
+      - reference_dimension
+      - multiplicity
+
+  - name: validate_dimensions
+    owner: deterministic
+    rules:
+      - valid_zone
+      - not_in_exclusion_region
+      - plausible_tolerance_ratio
+      - lower_upper_limits_match
+      - duplicate_resolution
+      - part_number_not_dimension
+
+  - name: vlm_review
+    owner: vlm_service
+    optional: true
+    candidates:
+      - qwen2_5_vl
+      - donut
+      - openai_vision
+    trigger:
+      - low_ocr_confidence
+      - parser_repair_applied
+      - ocr_vlm_disagreement
+      - human_requested
+
+  - name: human_review
+    owner: reviewer
+    trigger:
+      - confidence_below_acceptance_threshold
+      - validation_failed
+      - vlm_disagreement
+
+  - name: export
+    owner: worker
+    formats:
+      - xlsx
+      - json
+    schema:
+      - Part Number
+      - Zone
+      - Nominal Dimension
+      - Tolerance
+      - Tolerance Value
+      - Accuracy %
+      - Multiplicity
+      - Lower Limit
+      - Upper Limit
+      - File Name
+
+quality_gates:
+  accepted_row_precision: ">= 99.5%"
+  zone_accuracy: ">= 98%"
+  limit_accuracy: ">= 99.5%"
+  review_rate: "<= 20%"
+
+monitoring:
+  metrics:
+    - job_latency_seconds
+    - job_failure_rate
+    - accepted_rows
+    - review_rows
+    - rejected_rows
+    - ocr_confidence_distribution
+    - vlm_disagreement_rate
+    - human_correction_rate
+    - detector_map50
+    - row_exact_match_accuracy
+
+versioning:
+  track:
+    - source_file_checksum
+    - render_dpi
+    - detector_model_version
+    - ocr_model_version
+    - vlm_prompt_version
+    - parser_version
+    - code_commit
+    - output_checksum
