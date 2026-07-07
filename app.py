@@ -24,6 +24,8 @@ OUTPUT_COLUMNS = [
     "File Name",
 ]
 
+HOME_IMAGE_PATH = Path("assets/cad_dimension_extractor_home.png")
+
 
 st.set_page_config(
     page_title="CAD Dimension Extractor",
@@ -85,6 +87,8 @@ def _run_extraction(uploaded_file, ocr_engine: str, vlm_verifier: str) -> dict:
 
 st.title("CAD Dimension Extractor")
 st.caption("Geometry-first CAD dimension extraction with OCR crops, deterministic validation, and review-ready exports.")
+if HOME_IMAGE_PATH.exists():
+    st.image(str(HOME_IMAGE_PATH), use_container_width=True)
 
 with st.sidebar:
     st.header("Extraction")
