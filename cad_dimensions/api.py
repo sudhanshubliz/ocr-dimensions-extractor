@@ -52,6 +52,11 @@ class DimensionPatch(BaseModel):
         return {target: getattr(self, source) for source, target in mapping.items() if getattr(self, source) is not None}
 
 
+class ExtractRequest(BaseModel):
+    ocr_engine: str = "auto"
+    vlm_verifier: str = "disabled"
+
+
 @app.post("/documents")
 async def create_document(file: UploadFile = File(...)) -> dict:
     if not file.filename or not file.filename.lower().endswith(".pdf"):
@@ -68,7 +73,8 @@ async def create_document(file: UploadFile = File(...)) -> dict:
 
 
 @app.post("/documents/{document_id}/extract")
-def extract_document(document_id: str) -> dict:
+def extract_document(document_id: str, request: ExtractRequest | None = None) -> dict:
+    request = request or ExtractRequest()
     document = store.get_document(document_id)
     if not document:
         raise HTTPException(status_code=404, detail="Document not found.")
@@ -76,7 +82,12 @@ def extract_document(document_id: str) -> dict:
     output_dir = RUN_DIR / document_id
     store.upsert_job(job_id, document_id, "running", output_dir)
     try:
-        result = extract_pdf(Path(document["stored_path"]), output_dir)
+        result = extract_pdf(
+            Path(document["stored_path"]),
+            output_dir,
+            ocr_engine=request.ocr_engine,
+            vlm_verifier=request.vlm_verifier,
+        )
         store.replace_dimensions(document_id, result.rows)
         store.upsert_job(job_id, document_id, "completed", output_dir)
     except Exception as exc:

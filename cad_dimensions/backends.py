@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .geometry import BBox
@@ -29,6 +29,16 @@ class VLMVerification:
     needs_review: bool
     confidence: float
     reason: str = ""
+    payload: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {
+            "text": self.text,
+            "needs_review": self.needs_review,
+            "confidence": self.confidence,
+            "reason": self.reason,
+            "payload": self.payload,
+        }
 
 
 class DetectorBackend(ABC):

@@ -18,16 +18,22 @@ def main() -> int:
         default="auto",
         help="OCR mode for unknown templates: auto prefers PaddleOCR when installed, tesseract uses cropped Tesseract, legacy uses full-page Tesseract",
     )
+    parser.add_argument(
+        "--vlm-verifier",
+        choices=["disabled", "qwen", "donut", "openai"],
+        default="disabled",
+        help="Optional review-only verifier for cropped regions. Disabled by default; never auto-accepts rows.",
+    )
     args = parser.parse_args()
 
     if len(args.paths) == 2 and args.paths[1].suffix.lower() == ".xlsx":
-        result = extract_pdf(args.paths[0], ocr_engine=args.ocr_engine)
+        result = extract_pdf(args.paths[0], ocr_engine=args.ocr_engine, vlm_verifier=args.vlm_verifier)
         write_dimensions_excel(result.rows, args.paths[1])
         print(f"Saved {len(result.rows)} rows to {args.paths[1]} ({result.mode})")
         return 0
 
     if len(args.paths) == 1:
-        result = extract_pdf(args.paths[0], args.output_dir, ocr_engine=args.ocr_engine)
+        result = extract_pdf(args.paths[0], args.output_dir, ocr_engine=args.ocr_engine, vlm_verifier=args.vlm_verifier)
         print(f"Saved {len(result.rows)} rows to {result.run_dir or args.output_dir} ({result.mode})")
         return 0
 
@@ -36,6 +42,7 @@ def main() -> int:
         args.output_dir,
         timestamped=not args.flat_output,
         ocr_engine=args.ocr_engine,
+        vlm_verifier=args.vlm_verifier,
     )
     print(f"Saved batch analysis to {batch_output}")
     for result in results:

@@ -13,6 +13,7 @@ from .models import ExtractionResult, dimension_to_record, part_number_from_file
 from .ocr import extract_detector_crop_rows, extract_ocr_rows
 from .rendering import render_first_page
 from .templates import template_rows_for_part
+from .vlm_verifiers import select_vlm_verifier
 
 
 def _pdf_text_layer_chars(input_path: Path) -> int:
@@ -99,7 +100,62 @@ def _audit_payload(
     }
 
 
-def write_result_artifacts(result: ExtractionResult, output_dir: Path, image_path: Path | None = None) -> dict[str, Path]:
+def _apply_vlm_verifier(rows: list[dict], vlm_verifier: str) -> dict:
+    try:
+        verifier = select_vlm_verifier(vlm_verifier)
+    except Exception as exc:
+        review_rows = [row for row in rows if row.get("status") == "review"]
+        for row in review_rows:
+            row["vlm_verification"] = {
+                "text": "",
+                "needs_review": True,
+                "confidence": 0.0,
+                "reason": f"VLM verifier unavailable: {exc}",
+                "payload": {},
+            }
+        return {
+            "vlm_verifier": vlm_verifier,
+            "vlm_verifier_version": "unavailable",
+            "verified_rows": 0,
+            "failed_rows": len(review_rows),
+            "vlm_error": str(exc),
+        }
+
+    metadata = {
+        "vlm_verifier": verifier.name,
+        "vlm_verifier_version": verifier.version,
+        "verified_rows": 0,
+        "failed_rows": 0,
+    }
+    if verifier.name == "disabled-vlm":
+        return metadata
+
+    for row in rows:
+        if row.get("status") != "review" or not row.get("crop_path"):
+            continue
+        try:
+            ocr_candidate = f"{row.get('Nominal Dimension') or ''} {row.get('Tolerance') or ''}".strip()
+            verification = verifier.verify(Path(row["crop_path"]), ocr_candidate)
+            row["vlm_verification"] = verification.to_dict()
+            metadata["verified_rows"] += 1
+        except Exception as exc:
+            row["vlm_verification"] = {
+                "text": "",
+                "needs_review": True,
+                "confidence": 0.0,
+                "reason": f"VLM verifier failed: {exc}",
+                "payload": {},
+            }
+            metadata["failed_rows"] += 1
+    return metadata
+
+
+def write_result_artifacts(
+    result: ExtractionResult,
+    output_dir: Path,
+    image_path: Path | None = None,
+    vlm_verifier: str = "disabled",
+) -> dict[str, Path]:
     doc_dir = _document_output_dir(output_dir, result.input_path)
     crops_dir = doc_dir / "crops"
     doc_dir.mkdir(parents=True, exist_ok=True)
@@ -119,6 +175,11 @@ def write_result_artifacts(result: ExtractionResult, output_dir: Path, image_pat
         )
         row["crop_path"] = str(crop_path)
 
+    vlm_metadata = _apply_vlm_verifier(result.rows, vlm_verifier)
+    if isinstance(result.notes, dict):
+        result.notes.setdefault("extraction_metadata", {})
+        result.notes["extraction_metadata"].update(vlm_metadata)
+
     dimensions_path = doc_dir / "dimensions.json"
     audit_path = doc_dir / "audit_report.json"
     excel_path = doc_dir / f"{result.part_number or result.input_path.stem}_dimensions.xlsx"
@@ -134,7 +195,12 @@ def write_result_artifacts(result: ExtractionResult, output_dir: Path, image_pat
     }
 
 
-def extract_pdf(input_path: Path, output_dir: Path | None = None, ocr_engine: str = "auto") -> ExtractionResult:
+def extract_pdf(
+    input_path: Path,
+    output_dir: Path | None = None,
+    ocr_engine: str = "auto",
+    vlm_verifier: str = "disabled",
+) -> ExtractionResult:
     doc_output_dir = _document_output_dir(output_dir, input_path) if output_dir else None
     image_path = render_first_page(input_path, output_dir=doc_output_dir)
     grid_rows, grid_cols = detect_grid_intervals(image_path)
@@ -163,7 +229,7 @@ def extract_pdf(input_path: Path, output_dir: Path | None = None, ocr_engine: st
                 ),
                 doc_output_dir,
             )
-            write_result_artifacts(result, output_dir, image_path)
+            write_result_artifacts(result, output_dir, image_path, vlm_verifier=vlm_verifier)
         return result
 
     if ocr_engine == "legacy":
@@ -197,7 +263,7 @@ def extract_pdf(input_path: Path, output_dir: Path | None = None, ocr_engine: st
             ),
             doc_output_dir,
         )
-        write_result_artifacts(result, output_dir, image_path)
+        write_result_artifacts(result, output_dir, image_path, vlm_verifier=vlm_verifier)
     return result
 
 
@@ -206,6 +272,7 @@ def extract_many(
     output_dir: Path,
     timestamped: bool = True,
     ocr_engine: str = "auto",
+    vlm_verifier: str = "disabled",
 ) -> tuple[list[ExtractionResult], Path]:
     run_dir = output_dir / _timestamp() if timestamped else output_dir
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -213,7 +280,7 @@ def extract_many(
     all_rows = []
     summary_rows = []
     for input_path in input_paths:
-        result = extract_pdf(input_path, run_dir, ocr_engine=ocr_engine)
+        result = extract_pdf(input_path, run_dir, ocr_engine=ocr_engine, vlm_verifier=vlm_verifier)
         results.append(result)
         all_rows.extend(result.rows)
         high_conf = sum(1 for row in result.rows if (row.get("Accuracy %") or 0) >= 90)

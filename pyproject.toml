@@ -21,6 +21,14 @@ paddle = [
   "paddleocr>=3.0.0",
   "paddlepaddle>=3.0.0",
 ]
+vlm-local = [
+  "accelerate",
+  "pillow",
+  "qwen-vl-utils",
+  "torch",
+  "transformers",
+]
+openai = ["openai"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

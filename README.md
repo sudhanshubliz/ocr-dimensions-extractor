@@ -151,15 +151,47 @@ OCR modes:
 --ocr-engine legacy     Use the previous full-page Tesseract path
 ```
 
+Optional crop-level VLM verifiers:
+
+```text
+--vlm-verifier disabled  Default. No VLM/model/cloud verification.
+--vlm-verifier qwen      Local Qwen2.5-VL verifier through Transformers.
+--vlm-verifier donut     Local Donut document-understanding verifier through Transformers.
+--vlm-verifier openai    OpenAI vision verifier through the OpenAI API.
+```
+
 Install the optional PaddleOCR stack with:
 
 ```bash
 python -m pip install -e ".[paddle]"
 ```
 
+Install local VLM dependencies with:
+
+```bash
+python -m pip install -e ".[vlm-local]"
+```
+
+Install the OpenAI verifier dependency with:
+
+```bash
+python -m pip install -e ".[openai]"
+```
+
 PaddleOCR remains an OCR source, not the final source of truth. Rows from unknown
 templates are still `review` or `rejected` until deterministic validators and
-human review accept them.
+human review accept them. VLM verifier output is stored under
+`vlm_verification` in `dimensions.json`; it never changes a row to `accepted`.
+
+Example with a local VLM verifier:
+
+```bash
+python cad_grid_hybrid_extractor.py \
+  --ocr-engine paddle \
+  --vlm-verifier qwen \
+  -o output \
+  input/4022.713.00542-110-001-01.pdf
+```
 
 ### Structured output
 
