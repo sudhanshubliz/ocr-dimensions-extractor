@@ -1,0 +1,26 @@
+[project]
+name = "ocr-dimensions-extractor"
+version = "0.2.0"
+description = "Local secure CAD dimension extraction pipeline"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi",
+  "python-multipart",
+  "uvicorn",
+  "opencv-python",
+  "numpy",
+  "pandas",
+  "openpyxl",
+  "pdf2image",
+  "pytesseract",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120

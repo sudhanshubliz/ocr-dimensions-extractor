@@ -1,0 +1,27 @@
+{
+  "part_number": "4022.701.4430",
+  "accepted_count": 31,
+  "first_rows": [
+    {
+      "Zone": "A2",
+      "Nominal Dimension": 479.0,
+      "Tolerance": "+/-1",
+      "Lower Limit": 478.0,
+      "Upper Limit": 480.0
+    },
+    {
+      "Zone": "A2",
+      "Nominal Dimension": 475.0,
+      "Tolerance": "+/-1",
+      "Lower Limit": 474.0,
+      "Upper Limit": 476.0
+    },
+    {
+      "Zone": "A3",
+      "Nominal Dimension": 53.0,
+      "Tolerance": "+/-1",
+      "Lower Limit": 52.0,
+      "Upper Limit": 54.0
+    }
+  ]
+}

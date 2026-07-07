@@ -22,14 +22,14 @@ def find_poppler_path() -> str | None:
 def render_first_page(input_path: Path, dpi: int = 300) -> Path:
     if input_path.suffix.lower() != ".pdf":
         return input_path
+    output_image = input_path.with_suffix(".page1.png")
+    if output_image.exists():
+        return output_image
     if convert_from_path is None:
         raise RuntimeError("pdf2image is not available. Install dependencies from requirements.txt.")
     poppler_path = find_poppler_path()
     if not poppler_path:
         raise RuntimeError("Poppler/pdftoppm is not available.")
-    output_image = input_path.with_suffix(".page1.png")
-    if output_image.exists():
-        return output_image
     pages = convert_from_path(str(input_path), dpi=dpi, first_page=1, last_page=1, poppler_path=poppler_path)
     if not pages:
         raise RuntimeError(f"No pages rendered from {input_path}")

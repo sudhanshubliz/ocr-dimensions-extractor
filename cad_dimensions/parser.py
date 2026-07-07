@@ -15,7 +15,7 @@ PAIR_RE = re.compile(
     re.IGNORECASE,
 )
 UNILATERAL_RE = re.compile(
-    r"(?P<nom>\d+(?:[.,]\d+)?)\s*\+\s*(?P<up>\d+(?:[.,]\d+)?)\s*[-/]\s*(?P<dn>\d+(?:[.,]\d+)?)",
+    r"(?P<nom>\d+(?:[.,]\d+)?)\s*\+\s*(?P<up>\d+(?:[.,]\d+)?)\s*(?:-|/-|/)\s*(?P<dn>\d+(?:[.,]\d+)?)",
     re.IGNORECASE,
 )
 REFERENCE_RE = re.compile(r"\((?P<nom>\d+(?:[.,]\d+)?)\)")
@@ -77,6 +77,7 @@ def parse_dimensions(text: str, zone: str, avg_conf: int = 70) -> list[ParsedDim
     out: list[ParsedDimension] = []
     normalized = text.replace("£", "±").replace("—", "-").replace("–", "-")
     multiplicity = _multiplicity(normalized)
+    consumed_spans: list[tuple[int, int]] = []
 
     for match in UNILATERAL_RE.finditer(normalized):
         nom = _to_decimal(match.group("nom"))
@@ -90,8 +91,11 @@ def parse_dimensions(text: str, zone: str, avg_conf: int = 70) -> list[ParsedDim
             DimensionRow(zone, nom, f"+{up}/-{dn}", max(up, dn), dn, up, multiplicity, min(90, avg_conf), "ocr"),
             match.group(0),
         ))
+        consumed_spans.append(match.span())
 
     for match in PAIR_RE.finditer(normalized):
+        if any(match.start() < end and match.end() > start for start, end in consumed_spans):
+            continue
         nom = _to_decimal(match.group("nom"))
         tol = _to_decimal(match.group("tol"))
         if nom is None or tol is None:

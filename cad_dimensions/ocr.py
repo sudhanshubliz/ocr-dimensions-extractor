@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import replace
 
 import cv2
 import numpy as np
 import pytesseract
 
+from .geometry import BBox
 from .grid import zone_for_point
 from .models import DimensionRow
 from .parser import parse_dimensions
+from .validation import validate_dimension
 
 
 def _preprocess(gray: np.ndarray) -> list[np.ndarray]:
@@ -54,12 +57,18 @@ def _token_lines(gray: np.ndarray) -> list[dict]:
             "text": text,
             "cx": (left + right) / 2,
             "cy": (top + bottom) / 2,
+            "bbox": BBox(left, top, right, bottom),
             "avg_conf": avg_conf,
         })
     return lines
 
 
-def extract_ocr_rows(image_path: Path, rows: list[tuple[int, int]], cols: list[tuple[int, int]]) -> list[DimensionRow]:
+def extract_ocr_rows(
+    image_path: Path,
+    rows: list[tuple[int, int]],
+    cols: list[tuple[int, int]],
+    exclusions=None,
+) -> list[DimensionRow]:
     image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
     if image is None:
         return []
@@ -71,7 +80,8 @@ def extract_ocr_rows(image_path: Path, rows: list[tuple[int, int]], cols: list[t
             if not zone:
                 continue
             for parsed in parse_dimensions(line["text"], zone, line["avg_conf"]):
-                row = parsed.row
+                row = replace(parsed.row, source_bbox=line["bbox"])
+                row = validate_dimension(row, parsed.raw_text, exclusions or [])
                 key = (row.zone, float(row.nominal), row.tolerance_text)
                 previous = found.get(key)
                 if previous is None or row.accuracy > previous.accuracy:
